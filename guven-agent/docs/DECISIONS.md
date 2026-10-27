@@ -49,3 +49,9 @@ and at least one hour.
 ## D11. Pinned, hash-verified fixture downloads (proposed)
 Tests must not change because an upstream dataset changed. Downloaded data is
 git-ignored; tests skip with a clear message if fixtures are missing.
+
+## D12. Gumshoe lives in `guven-agent/` of a monorepo (accepted, Guv 2026-10-27)
+Other contributors will add their own agents to this repository. Gumshoe is a
+self-contained uv project under `guven-agent/` (own pyproject, lockfile,
+.gitignore, tests, docs), so it never depends on or edits another agent's folder.
+Shared root files stay generic; CI is path-filtered to `guven-agent/**`.

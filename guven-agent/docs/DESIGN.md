@@ -6,54 +6,63 @@ not need rewriting later).
 
 ## 1. Repo layout
 
+The repository is a monorepo: each contributor's agent lives in its own top-level
+folder. Gumshoe lives entirely under `guven-agent/` and is a self-contained uv
+project there (its own `pyproject.toml`, lockfile, `.gitignore`, tests). Nothing
+outside that folder is touched, except a CI workflow under the root `.github/`
+filtered to `guven-agent/**` paths (see open question 4).
+
 ```
-gumshoe/
-├── pyproject.toml              # uv project, Python >=3.12, entry point `gumshoe-mcp`
-├── uv.lock
-├── README.md                   # connect to Claude Code, run the demo investigation
-├── docs/
-│   ├── DESIGN.md               # this file
-│   └── DECISIONS.md            # running log of design choices (ADR-lite)
-├── src/gumshoe/
-│   ├── __init__.py
-│   ├── server.py               # FastMCP app: tool registration only, no logic
-│   ├── config.py               # GUMSHOE_HOME, limits, feature flags (network off)
-│   ├── store/
-│   │   ├── case.py             # create/list/open cases, case directory layout
-│   │   ├── db.py               # SQLite connection, migrations, pragmas
-│   │   ├── schema.sql          # tables (section 3)
-│   │   └── evidence.py         # hash, immutable copy, chmod read-only
-│   ├── ingest/
-│   │   ├── base.py             # Parser protocol -> iterator of Event
-│   │   ├── evtx.py             # python-evtx; EventID-specific field mapping
-│   │   ├── evtx_map.py         # per (channel, EventID) -> Event field mapping table
-│   │   ├── linux_auth.py       # auth.log / secure (sshd, sudo, su, useradd...)
-│   │   ├── syslog.py           # RFC 3164 / 5424 syslog
-│   │   ├── journald.py         # `journalctl -o json` exports
-│   │   └── generic.py          # JSON lines / JSON array / CSV with a field map
-│   ├── query/
-│   │   ├── search.py           # search_events: filters -> parameterised SQL
-│   │   ├── coverage.py         # get_coverage: ranges, gaps, log-cleared markers
-│   │   └── paging.py           # opaque cursors, limits
-│   ├── safety/
-│   │   ├── untrusted.py        # wrap + truncate attacker-controlled strings
-│   │   └── injection.py        # heuristics for "instructions aimed at an AI"
-│   └── audit.py                # decorator: every tool call logged (section 5)
-├── fixtures/
-│   ├── fetch_fixtures.py       # downloads a pinned subset, verifies SHA-256
-│   ├── manifest.toml           # url, sha256, expected technique per file
-│   └── synthetic/              # small hand-written Linux logs (no public set fits)
-└── tests/
-    ├── conftest.py             # temp GUMSHOE_HOME, fixture paths, skip if not fetched
-    ├── test_store.py
-    ├── test_evidence_immutability.py
-    ├── test_ingest_evtx.py
-    ├── test_ingest_linux.py
-    ├── test_search.py
-    ├── test_coverage.py
-    ├── test_audit.py
-    ├── test_untrusted.py
-    └── test_mcp_tools.py       # drives the FastMCP server in-process
+<repo root>/
+├── .gitignore                  # shared, generic
+└── guven-agent/
+    ├── .gitignore                  # .venv, fixtures/data, case output
+    ├── pyproject.toml              # uv project, Python >=3.12, entry point `gumshoe-mcp`
+    ├── uv.lock
+    ├── README.md                   # connect to Claude Code, run the demo investigation
+    ├── docs/
+    │   ├── DESIGN.md               # this file
+    │   └── DECISIONS.md            # running log of design choices (ADR-lite)
+    ├── src/gumshoe/
+    │   ├── __init__.py
+    │   ├── server.py               # FastMCP app: tool registration only, no logic
+    │   ├── config.py               # GUMSHOE_HOME, limits, feature flags (network off)
+    │   ├── store/
+    │   │   ├── case.py             # create/list/open cases, case directory layout
+    │   │   ├── db.py               # SQLite connection, migrations, pragmas
+    │   │   ├── schema.sql          # tables (section 3)
+    │   │   └── evidence.py         # hash, immutable copy, chmod read-only
+    │   ├── ingest/
+    │   │   ├── base.py             # Parser protocol -> iterator of Event
+    │   │   ├── evtx.py             # python-evtx; EventID-specific field mapping
+    │   │   ├── evtx_map.py         # per (channel, EventID) -> Event field mapping table
+    │   │   ├── linux_auth.py       # auth.log / secure (sshd, sudo, su, useradd...)
+    │   │   ├── syslog.py           # RFC 3164 / 5424 syslog
+    │   │   ├── journald.py         # `journalctl -o json` exports
+    │   │   └── generic.py          # JSON lines / JSON array / CSV with a field map
+    │   ├── query/
+    │   │   ├── search.py           # search_events: filters -> parameterised SQL
+    │   │   ├── coverage.py         # get_coverage: ranges, gaps, log-cleared markers
+    │   │   └── paging.py           # opaque cursors, limits
+    │   ├── safety/
+    │   │   ├── untrusted.py        # wrap + truncate attacker-controlled strings
+    │   │   └── injection.py        # heuristics for "instructions aimed at an AI"
+    │   └── audit.py                # decorator: every tool call logged (section 5)
+    ├── fixtures/
+    │   ├── fetch_fixtures.py       # downloads a pinned subset, verifies SHA-256
+    │   ├── manifest.toml           # url, sha256, expected technique per file
+    │   └── synthetic/              # small hand-written Linux logs (no public set fits)
+    └── tests/
+        ├── conftest.py             # temp GUMSHOE_HOME, fixture paths, skip if not fetched
+        ├── test_store.py
+        ├── test_evidence_immutability.py
+        ├── test_ingest_evtx.py
+        ├── test_ingest_linux.py
+        ├── test_search.py
+        ├── test_coverage.py
+        ├── test_audit.py
+        ├── test_untrusted.py
+        └── test_mcp_tools.py       # drives the FastMCP server in-process
 ```
 
 Later phases add `detect/` (sigma, process tree), `analysis/` (decode, findings,
@@ -230,4 +239,4 @@ message if `fetch_fixtures.py` has not been run; CI runs it.
 2. **Schema basis**: ECS-style names (proposed) vs OCSF. ECS matches Sigma and
    most DFIR tooling; OCSF is more formal but heavier.
 3. **Truncation default** of 512 chars per untrusted field.
-4. **CI**: add a GitHub Actions workflow (macOS + Linux, uv, fetch fixtures, pytest)?
+4. **CI**: add a root `.github/workflows/guven-agent.yml` (macOS + Linux, uv, fetch fixtures, pytest), filtered to `guven-agent/**` so other agents' changes don't trigger it?
